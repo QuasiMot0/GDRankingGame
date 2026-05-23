@@ -4,6 +4,19 @@ import { Shuffle, Play, RefreshCw, Trophy, Skull, GripVertical } from "lucide-re
 // ---------- helpers ----------
 const PROXY = "https://pointercrate.com/api/v2/demons/listed/";
 
+// Approximate Pointercrate demon ID cutoffs per year (IDs are assigned chronologically).
+// Positions shown are current, not historical.
+const YEAR_CONFIG = {
+  2017: { maxId: 130,   fetchMax: 500  },
+  2018: { maxId: 420,   fetchMax: 750  },
+  2019: { maxId: 950,   fetchMax: 1000 },
+  2020: { maxId: 2200,  fetchMax: 1000 },
+  2021: { maxId: 4800,  fetchMax: 1000 },
+  2022: { maxId: 8500,  fetchMax: 1000 },
+  2023: { maxId: 13000, fetchMax: 1000 },
+  2024: { maxId: 19000, fetchMax: 1000 },
+};
+
 async function fetchRange(start, end) {
   // pointercrate paginates by id, not position, so we just pull pages and filter by position
   // grab pages of 100 starting from position 1 until we cover the range
@@ -58,6 +71,11 @@ function pickWeighted(arr, n, bias) {
     pool.splice(idx, 1);
   }
   return picked;
+}
+
+function youtubeEmbedUrl(url) {
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  return m ? `https://www.youtube.com/embed/${m[1]}?autoplay=1&modestbranding=1&rel=0` : null;
 }
 
 function levelThumb(d) {
@@ -352,6 +370,59 @@ const css = `
     .gd-name { font-size: 15px; }
     .gd-play-btn { width: 40px; height: 36px; }
   }
+
+  .gd-modal-backdrop {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0, 0, 0, 0.82);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .gd-modal {
+    background: #0a1628;
+    border: 2px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    width: 100%; max-width: 900px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.8);
+    display: flex; flex-direction: column;
+  }
+  .gd-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(0,0,0,.3);
+    border-bottom: 1px solid var(--line);
+  }
+  .gd-modal-title {
+    font-family: 'Russo One', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .gd-modal-close {
+    background: rgba(255,255,255,.08);
+    border: 1px solid var(--line);
+    color: var(--ink-dim);
+    width: 30px; height: 30px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all .12s;
+  }
+  .gd-modal-close:hover { color: var(--ink); border-color: var(--danger); background: rgba(255,68,68,.15); }
+  .gd-modal-video {
+    position: relative; width: 100%;
+    padding-top: calc(56.25% - 60px); /* subtract the clipped title height */
+    overflow: hidden;
+  }
+  .gd-modal-video iframe {
+    position: absolute;
+    top: -60px; /* push up to hide the title bar */
+    left: 0; width: 100%;
+    height: calc(100% + 60px); /* compensate so controls stay visible */
+    border: none;
+  }
 `;
 
 // ---------- main ----------
@@ -360,11 +431,13 @@ export default function App() {
   const [mode, setMode] = useState("weighted"); // "weighted" | "topN" | "uniform"
   const [poolMax, setPoolMax] = useState(150);
   const [count, setCount] = useState(8);
+  const [year, setYear] = useState(null); // null = current list
   const [demons, setDemons] = useState([]); // current display order
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [revealed, setRevealed] = useState(false);
   const [score, setScore] = useState(null);
+  const [activeVideo, setActiveVideo] = useState(null);
 
   const dragId = useRef(null);
   const dragOverId = useRef(null);
@@ -380,19 +453,21 @@ export default function App() {
     setDemons([]);
     try {
       let picked;
+      const yearCfg = year ? YEAR_CONFIG[year] : null;
       if (mode === "topN") {
-        // exact top N — no randomness, no pool
         const top = await fetchRange(1, count);
         picked = top.sort((a, b) => a.position - b.position).slice(0, count);
       } else {
-        const pool = await fetchRange(1, poolMax);
-        if (!pool.length) throw new Error("no demons returned");
+        const fetchMax = yearCfg ? yearCfg.fetchMax : poolMax;
+        let pool = await fetchRange(1, fetchMax);
+        if (yearCfg) pool = pool.filter(d => d.id <= yearCfg.maxId);
+        if (!pool.length) throw new Error(`No demons found for ${year} — try a later year.`);
+        if (pool.length < count) throw new Error(`Only ${pool.length} demons found for ${year}. Lower the level count.`);
         if (mode === "uniform") {
           picked = pickRandom(pool, Math.min(count, pool.length));
         } else {
-          // weighted: scale bias by how many you're pulling relative to pool size.
-          // smaller pulls → stronger top bias. ~0.6 for tiny pulls, ~0.15 for big pulls.
-          const ratio = count / poolMax;
+          const effectivePool = yearCfg ? pool.length : poolMax;
+          const ratio = count / effectivePool;
           const bias = Math.max(0.1, 0.7 - ratio * 2);
           picked = pickWeighted(pool, Math.min(count, pool.length), bias);
         }
@@ -551,7 +626,6 @@ export default function App() {
               <h1 className="gd-title">DEMON RANK</h1>
               <div className="gd-subtitle">Pointercrate Ranking Game</div>
             </div>
-            <div className="gd-subtitle">drag · drop · guess · reveal</div>
           </div>
 
           <div className="gd-controls">
@@ -570,12 +644,27 @@ export default function App() {
             </div>
 
             <div className="gd-field">
+              <label className="gd-label">Era</label>
+              <select
+                className="gd-select"
+                value={year ?? ""}
+                onChange={e => setYear(e.target.value ? Number(e.target.value) : null)}
+                disabled={loading}
+              >
+                <option value="">Current list</option>
+                {Object.keys(YEAR_CONFIG).reverse().map(y => (
+                  <option key={y} value={y}>{y} era</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="gd-field">
               <label className="gd-label">Pool (top N)</label>
               <select
                 className="gd-select"
                 value={poolMax}
                 onChange={e => setPoolMax(Number(e.target.value))}
-                disabled={loading || mode === "topN"}
+                disabled={loading || mode === "topN" || !!year}
               >
                 <option value={75}>Top 75 (main list)</option>
                 <option value={150}>Top 150</option>
@@ -691,16 +780,13 @@ export default function App() {
 
                     <div className="gd-play-col">
                       {d.video && (
-                        <a
-                          href={d.video}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
                           className="gd-play-btn"
                           title="Watch completion video"
-                          onClick={e => e.stopPropagation()}
+                          onClick={e => { e.stopPropagation(); setActiveVideo({ url: d.video, name: d.name }); }}
                         >
                           <Play size={22}/>
-                        </a>
+                        </button>
                       )}
                     </div>
 
@@ -744,6 +830,29 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {activeVideo && (
+        <div className="gd-modal-backdrop" onClick={() => setActiveVideo(null)}>
+          <div className="gd-modal" onClick={e => e.stopPropagation()}>
+            <div className="gd-modal-header">
+              <span className="gd-modal-title">{activeVideo.name}</span>
+              <button className="gd-modal-close" onClick={() => setActiveVideo(null)}>✕</button>
+            </div>
+            <div className="gd-modal-video">
+              {youtubeEmbedUrl(activeVideo.url)
+                ? <iframe
+                    src={youtubeEmbedUrl(activeVideo.url)}
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                  />
+                : <div style={{ padding: 40, color: 'var(--ink-dim)', textAlign: 'center' }}>
+                    Video unavailable for embed.
+                  </div>
+              }
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
