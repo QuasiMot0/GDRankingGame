@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Shuffle, Play, Eye, EyeOff, RefreshCw, Trophy, Skull, GripVertical, Settings } from "lucide-react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { Shuffle, Play, RefreshCw, Trophy, Skull, GripVertical } from "lucide-react";
 
 // ---------- helpers ----------
 const PROXY = "https://pointercrate.com/api/v2/demons/listed/";
@@ -96,22 +96,7 @@ const css = `
 
   .gd-root {
     min-height: 100vh;
-    background:
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 78px,
-        rgba(15, 70, 200, 0.35) 78px,
-        rgba(15, 70, 200, 0.35) 80px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 118px,
-        rgba(15, 70, 200, 0.35) 118px,
-        rgba(15, 70, 200, 0.35) 120px
-      ),
-      linear-gradient(170deg, #0e2a6e 0%, #0a4aaa 45%, #072060 100%);
+    background: url('/bg.png') center center / cover fixed;
     color: var(--ink);
     font-family: 'JetBrains Mono', monospace;
     padding: 24px;
@@ -234,93 +219,108 @@ const css = `
   .gd-list { display: flex; flex-direction: column; gap: 6px; }
 
   .gd-card {
-    background: rgba(11, 30, 66, 0.85);
-    border: 2px solid var(--line);
-    border-radius: 6px;
-    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 2px solid rgba(200, 215, 240, 0.8);
+    border-radius: 8px;
+    padding: 10px;
     display: grid;
-    grid-template-columns: 44px 80px 1fr auto;
-    gap: 12px;
-    align-items: center;
+    grid-template-columns: 144px 1fr auto auto auto;
+    gap: 10px;
+    align-items: stretch;
     cursor: grab;
     transition: border-color .15s, box-shadow .15s;
-    backdrop-filter: blur(2px);
   }
-  .gd-card:hover { border-color: var(--line-bright); box-shadow: 0 2px 12px rgba(0,0,0,.4); }
+  .gd-card:hover { border-color: var(--line-bright); box-shadow: 0 4px 16px rgba(0,0,0,.3); }
   .gd-card.dragging { opacity: 0.35; cursor: grabbing; }
-  .gd-card.drag-over { border-color: var(--accent-2); box-shadow: 0 0 16px rgba(68,170,255,.3); }
-  .gd-card.reveal-correct { border-color: var(--success); box-shadow: 0 0 16px rgba(68,221,136,.25); }
+  .gd-card.drag-over { border-color: var(--line-bright); }
+.gd-card.reveal-correct { border-color: var(--success); box-shadow: 0 0 16px rgba(68,221,136,.3); }
   .gd-card.reveal-close { border-color: var(--warn); }
   .gd-card.reveal-wrong { border-color: var(--danger); }
 
-  .gd-rank {
-    font-family: 'Russo One', sans-serif;
-    font-size: 22px;
-    color: var(--accent);
-    text-align: center;
-    text-shadow: 0 2px 0 var(--accent-shadow);
-    line-height: 1;
-  }
-
   .gd-thumb {
-    width: 80px; height: 45px;
-    background: var(--bg-2);
+    width: 144px; height: 81px;
+    background: #e5e7eb;
     border-radius: 4px;
     object-fit: cover;
-    border: 2px solid var(--line);
+    border: 1px solid #d1d5db;
+    display: block;
+    align-self: center;
   }
   .gd-thumb-placeholder {
-    width: 80px; height: 45px;
-    background: var(--bg-2);
-    border: 2px solid var(--line);
+    width: 144px; height: 81px;
+    background: #e5e7eb;
+    border: 1px solid #d1d5db;
     border-radius: 4px;
     display: flex; align-items: center; justify-content: center;
-    color: var(--ink-dim);
+    color: #9ca3af;
+    align-self: center;
   }
 
-  .gd-meta { min-width: 0; }
+  .gd-meta { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
   .gd-name {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px;
-    letter-spacing: 0.05em;
-    color: var(--ink);
-    margin: 0 0 2px;
-    line-height: 1;
+    font-family: 'Russo One', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.01em;
+    color: #111827;
+    margin: 0 0 4px;
+    line-height: 1.2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .gd-name-rank { color: var(--accent-shadow); margin-right: 2px; }
   .gd-by {
-    font-size: 11px; color: var(--ink-dim);
-    text-transform: uppercase; letter-spacing: 0.08em;
+    font-size: 12px; color: #6b7280;
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
   }
   .gd-actual {
-    font-size: 11px;
-    color: var(--accent-2);
+    font-size: 12px;
+    color: #1d6fb8;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 2px;
+    letter-spacing: 0.03em;
+    margin-top: 4px;
   }
-  .gd-diff { color: var(--ink-dim); margin-left: 8px; }
+  .gd-diff { color: #9ca3af; margin-left: 8px; }
   .gd-diff.bad { color: var(--danger); }
   .gd-diff.ok { color: var(--warn); }
-  .gd-diff.good { color: var(--success); }
+  .gd-diff.good { color: #16a34a; }
 
-  .gd-actions { display: flex; align-items: center; gap: 6px; }
+  .gd-play-col {
+    display: flex; align-items: center; justify-content: center;
+  }
+  .gd-play-btn {
+    background: #f3f4f6;
+    border: 2px solid #d1d5db;
+    color: #6b7280;
+    width: 52px;
+    height: 100%;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .12s;
+    text-decoration: none;
+  }
+  .gd-play-btn:hover { color: var(--accent-shadow); border-color: var(--accent); background: #fffbeb; }
+
+  .gd-arrows-col { display: flex; flex-direction: column; gap: 4px; }
   .gd-icon-btn {
-    background: rgba(6,18,40,.7);
-    border: 2px solid var(--line);
-    color: var(--ink-dim);
-    width: 32px; height: 32px;
+    background: #f3f4f6;
+    border: 2px solid #d1d5db;
+    color: #6b7280;
+    width: 36px;
+    flex: 1;
     border-radius: 4px;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: all .12s;
   }
-  .gd-icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .gd-icon-btn:hover { color: var(--accent-shadow); border-color: var(--accent); background: #fffbeb; }
   .gd-icon-btn.disabled { opacity: 0.25; cursor: not-allowed; }
-  .gd-grip { color: var(--ink-dim); display: flex; }
+  .gd-grip {
+    color: #9ca3af;
+    display: flex; align-items: center; justify-content: center;
+  }
 
   .gd-empty {
     text-align: center; padding: 80px 20px;
@@ -347,10 +347,10 @@ const css = `
   .gd-score-detail { font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--ink-dim); margin-top: 4px; }
 
   @media (max-width: 600px) {
-    .gd-card { grid-template-columns: 32px 60px 1fr auto; gap: 8px; padding: 8px; }
-    .gd-thumb, .gd-thumb-placeholder { width: 60px; height: 34px; }
-    .gd-name { font-size: 18px; }
-    .gd-rank { font-size: 18px; }
+    .gd-card { grid-template-columns: 96px 1fr auto auto auto; gap: 6px; padding: 8px; }
+    .gd-thumb, .gd-thumb-placeholder { width: 96px; height: 54px; }
+    .gd-name { font-size: 15px; }
+    .gd-play-btn { width: 40px; height: 36px; }
   }
 `;
 
@@ -360,7 +360,6 @@ export default function App() {
   const [mode, setMode] = useState("weighted"); // "weighted" | "topN" | "uniform"
   const [poolMax, setPoolMax] = useState(150);
   const [count, setCount] = useState(8);
-  const [hideNames, setHideNames] = useState(false);
   const [demons, setDemons] = useState([]); // current display order
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -370,6 +369,8 @@ export default function App() {
   const dragId = useRef(null);
   const dragOverId = useRef(null);
   const [, force] = useState(0);
+  const cardRefs = useRef({});
+  const [pendingFlip, setPendingFlip] = useState(null);
 
   async function startNewRound() {
     setLoading(true);
@@ -406,49 +407,105 @@ export default function App() {
     }
   }
 
+  // pendingFlip: map of { [cardId]: DOMRect } captured before a reorder
+  useLayoutEffect(() => {
+    if (!pendingFlip) return;
+    const easing = 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    const duration = 220;
+    const toClean = [];
+
+    // Apply inverse transforms (move cards back to old positions)
+    const moved = [];
+    for (const [id, oldRect] of Object.entries(pendingFlip)) {
+      const el = cardRefs.current[id];
+      if (!el) continue;
+      const newRect = el.getBoundingClientRect();
+      const dy = oldRect.top - newRect.top;
+      if (Math.abs(dy) < 1) continue;
+      el.style.transition = 'none';
+      el.style.transform = `translateY(${dy}px)`;
+      moved.push(el);
+    }
+
+    if (!moved.length) { setPendingFlip(null); return; }
+    void moved[0].offsetHeight; // force reflow
+
+    // Animate to resting position
+    for (const el of moved) {
+      el.style.transition = `transform ${duration}ms ${easing}`;
+      el.style.transform = '';
+      const t = setTimeout(() => { if (el) el.style.transition = ''; }, duration + 20);
+      toClean.push(t);
+    }
+
+    setPendingFlip(null);
+    return () => toClean.forEach(clearTimeout);
+  }, [pendingFlip]);
+
+  function captureRects() {
+    const rects = {};
+    for (const [id, el] of Object.entries(cardRefs.current)) {
+      if (el) rects[id] = el.getBoundingClientRect();
+    }
+    return rects;
+  }
+
   function move(idx, dir) {
     if (revealed) return;
     const next = [...demons];
     const target = idx + dir;
     if (target < 0 || target >= next.length) return;
+    const rects = captureRects();
     [next[idx], next[target]] = [next[target], next[idx]];
     setDemons(next);
+    setPendingFlip(rects);
   }
+
+  const dragStartOrderRef = useRef(null);
+  const dropHappenedRef = useRef(false);
 
   function handleDragStart(e, id) {
     if (revealed) { e.preventDefault(); return; }
     dragId.current = id;
+    dragStartOrderRef.current = [...demons];
     e.dataTransfer.effectAllowed = "move";
   }
-  function handleDragOver(e, id) {
+  function handleDragOver(e, targetId) {
     if (revealed) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (dragOverId.current !== id) {
-      dragOverId.current = id;
-      force(n => n + 1);
-    }
+    const fromId = dragId.current;
+    if (!fromId || fromId === targetId || dragOverId.current === targetId) return;
+    dragOverId.current = targetId;
+    const rects = captureRects();
+    setDemons(prev => {
+      const fromIdx = prev.findIndex(d => d.id === fromId);
+      const toIdx = prev.findIndex(d => d.id === targetId);
+      if (fromIdx < 0 || toIdx < 0) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next;
+    });
+    setPendingFlip(rects);
   }
   function handleDragLeave() {
     dragOverId.current = null;
-    force(n => n + 1);
   }
-  function handleDrop(e, dropId) {
+  function handleDrop(e) {
     if (revealed) return;
     e.preventDefault();
-    const fromId = dragId.current;
-    if (fromId == null || fromId === dropId) return;
-    const fromIdx = demons.findIndex(d => d.id === fromId);
-    const toIdx = demons.findIndex(d => d.id === dropId);
-    if (fromIdx < 0 || toIdx < 0) return;
-    const next = [...demons];
-    const [moved] = next.splice(fromIdx, 1);
-    next.splice(toIdx, 0, moved);
-    setDemons(next);
+    dropHappenedRef.current = true;
     dragId.current = null;
     dragOverId.current = null;
+    dragStartOrderRef.current = null;
   }
   function handleDragEnd() {
+    if (!dropHappenedRef.current && dragStartOrderRef.current) {
+      setDemons(dragStartOrderRef.current);
+    }
+    dropHappenedRef.current = false;
+    dragStartOrderRef.current = null;
     dragId.current = null;
     dragOverId.current = null;
     force(n => n + 1);
@@ -541,18 +598,7 @@ export default function App() {
               />
             </div>
 
-            <div className="gd-field">
-              <label className="gd-label">Spoiler mode</label>
-              <button
-                className="gd-btn gd-btn-ghost"
-                onClick={() => setHideNames(v => !v)}
-                disabled={loading}
-              >
-                {hideNames ? <><EyeOff size={14}/> Names hidden</> : <><Eye size={14}/> Names shown</>}
-              </button>
-            </div>
-
-            <div className="gd-field">
+<div className="gd-field">
               <label className="gd-label">&nbsp;</label>
               <button className="gd-btn" onClick={startNewRound} disabled={loading}>
                 {loading ? <RefreshCw size={14} className="spin"/> : <Shuffle size={14}/>}
@@ -609,16 +655,15 @@ export default function App() {
                 return (
                   <div
                     key={d.id}
+                    ref={el => { cardRefs.current[d.id] = el; }}
                     className={cardClass}
                     draggable={!revealed}
                     onDragStart={e => handleDragStart(e, d.id)}
                     onDragOver={e => handleDragOver(e, d.id)}
                     onDragLeave={handleDragLeave}
-                    onDrop={e => handleDrop(e, d.id)}
+                    onDrop={handleDrop}
                     onDragEnd={handleDragEnd}
                   >
-                    <div className="gd-rank">#{i + 1}</div>
-
                     {thumb
                       ? <img className="gd-thumb" src={thumb} alt={d.name} loading="lazy"/>
                       : <div className="gd-thumb-placeholder"><Skull size={20}/></div>
@@ -626,10 +671,10 @@ export default function App() {
 
                     <div className="gd-meta">
                       <div className="gd-name">
-                        {hideNames && !revealed ? `??? #${i+1}` : d.name}
+                        <span className="gd-name-rank">#{i+1}</span> – {d.name}
                       </div>
                       <div className="gd-by">
-                        by {d.publisher?.name || "?"}
+                        published by {d.publisher?.name || "?"}
                         {d.verifier?.name && d.verifier.name !== d.publisher?.name &&
                           <> · verified by {d.verifier.name}</>
                         }
@@ -638,25 +683,28 @@ export default function App() {
                         <div className="gd-actual">
                           actually #{d.position}
                           <span className={`gd-diff ${diffClass(err)}`}>
-                            {err === 0 ? "✓ exact" : `off by ${err}`}
+                            {err === 0 ? " ✓ exact" : ` off by ${err}`}
                           </span>
                         </div>
                       )}
                     </div>
 
-                    <div className="gd-actions">
+                    <div className="gd-play-col">
                       {d.video && (
                         <a
                           href={d.video}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="gd-icon-btn"
+                          className="gd-play-btn"
                           title="Watch completion video"
                           onClick={e => e.stopPropagation()}
                         >
-                          <Play size={14}/>
+                          <Play size={22}/>
                         </a>
                       )}
+                    </div>
+
+                    <div className="gd-arrows-col">
                       <button
                         className={`gd-icon-btn ${revealed || i === 0 ? "disabled" : ""}`}
                         onClick={() => move(i, -1)}
@@ -669,8 +717,9 @@ export default function App() {
                         disabled={revealed || i === demons.length - 1}
                         title="Move down"
                       >▼</button>
-                      <div className="gd-grip"><GripVertical size={16}/></div>
                     </div>
+
+                    <div className="gd-grip"><GripVertical size={20}/></div>
                   </div>
                 );
               })}
