@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shuffle, RefreshCw, Play, Skull, GripVertical } from 'lucide-react';
+import { track } from '@vercel/analytics';
 import { pickRandom, pickWeighted } from './helpers.js';
 import RankingShell from './RankingShell.jsx';
 
@@ -88,6 +89,7 @@ export default function LevelMode({ onPlayVideo }) {
       }
       const shuffled = pickRandom(picked, picked.length);
       setItems(shuffled.map(d => ({ ...d, sortKey: d.position })));
+      track('game_started', { mode, poolMax, count: picked.length, year: year ?? 'all' });
     } catch (e) {
       setError(e.message || 'failed to load demons');
     } finally {

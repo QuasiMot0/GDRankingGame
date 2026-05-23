@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shuffle, RefreshCw, Play, GripVertical } from 'lucide-react';
+import { track } from '@vercel/analytics';
 import { pickRandom, countryFlag } from './helpers.js';
 import RankingShell from './RankingShell.jsx';
 
@@ -102,6 +103,7 @@ export default function PlayerMode({ onPlayVideo }) {
       });
 
       setItems(pickRandom(enriched, enriched.length));
+      track('game_started', { mode: 'players', poolMax, count });
     } catch (e) {
       setError(e.message || 'failed to load players');
     } finally {
