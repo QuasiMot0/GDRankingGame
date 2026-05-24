@@ -6,16 +6,6 @@ import RankingShell from './RankingShell.jsx';
 
 const DEMON_API = 'https://pointercrate.com/api/v2/demons/listed/';
 
-const YEAR_CONFIG = {
-  2017: { maxId: 130,   fetchMax: 500  },
-  2018: { maxId: 420,   fetchMax: 750  },
-  2019: { maxId: 950,   fetchMax: 1000 },
-  2020: { maxId: 2200,  fetchMax: 1000 },
-  2021: { maxId: 4800,  fetchMax: 1000 },
-  2022: { maxId: 8500,  fetchMax: 1000 },
-  2023: { maxId: 13000, fetchMax: 1000 },
-  2024: { maxId: 19000, fetchMax: 1000 },
-};
 
 async function fetchDemonRange(start, end) {
   const out = [];
@@ -57,7 +47,6 @@ export default function LevelMode({ onPlayVideo }) {
   const [mode, setMode] = useState('weighted');
   const [poolMax, setPoolMax] = useState(150);
   const [count, setCount] = useState(8);
-  const [year, setYear] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -68,28 +57,23 @@ export default function LevelMode({ onPlayVideo }) {
     setItems([]);
     try {
       let picked;
-      const yearCfg = year ? YEAR_CONFIG[year] : null;
       if (mode === 'topN') {
         const top = await fetchDemonRange(1, count);
         picked = top.sort((a, b) => a.position - b.position).slice(0, count);
       } else {
-        const fetchMax = yearCfg ? yearCfg.fetchMax : poolMax;
-        let pool = await fetchDemonRange(1, fetchMax);
-        if (yearCfg) pool = pool.filter(d => d.id <= yearCfg.maxId);
-        if (!pool.length) throw new Error(`No demons found for ${year} — try a later year.`);
-        if (pool.length < count) throw new Error(`Only ${pool.length} demons found for ${year}. Lower the level count.`);
+        const pool = await fetchDemonRange(1, poolMax);
+        if (!pool.length) throw new Error('no demons returned');
         if (mode === 'uniform') {
           picked = pickRandom(pool, Math.min(count, pool.length));
         } else {
-          const effectivePool = yearCfg ? pool.length : poolMax;
-          const ratio = count / effectivePool;
+          const ratio = count / poolMax;
           const bias = Math.max(0.1, 0.7 - ratio * 2);
           picked = pickWeighted(pool, Math.min(count, pool.length), bias);
         }
       }
       const shuffled = pickRandom(picked, picked.length);
       setItems(shuffled.map(d => ({ ...d, sortKey: d.position })));
-      track('game_started', { mode, poolMax, count: picked.length, year: year ?? 'all' });
+      track('game_started', { mode, poolMax, count: picked.length });
     } catch (e) {
       setError(e.message || 'failed to load demons');
     } finally {
@@ -170,27 +154,12 @@ export default function LevelMode({ onPlayVideo }) {
       </div>
 
       <div className="gd-field">
-        <label className="gd-label">Era</label>
-        <select
-          className="gd-select"
-          value={year ?? ''}
-          onChange={e => setYear(e.target.value ? Number(e.target.value) : null)}
-          disabled={loading}
-        >
-          <option value="">Current list</option>
-          {Object.keys(YEAR_CONFIG).reverse().map(y => (
-            <option key={y} value={y}>{y} era</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="gd-field">
         <label className="gd-label">Pool (top N)</label>
         <select
           className="gd-select"
           value={poolMax}
           onChange={e => setPoolMax(Number(e.target.value))}
-          disabled={loading || mode === 'topN' || !!year}
+          disabled={loading || mode === 'topN'}
         >
           <option value={75}>Top 75 (main list)</option>
           <option value={150}>Top 150</option>
