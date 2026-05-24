@@ -81,7 +81,7 @@ export default function LevelMode({ onPlayVideo }) {
     }
   }
 
-  function renderCard(item, { userIndex, revealed, err, isFirst, isLast, moveUp, moveDown }) {
+  function renderCard(item, { userIndex, guessedIndex, revealed, err, isFirst, isLast, moveUp, moveDown }) {
     const thumb = levelThumb(item);
     return (
       <>
@@ -102,9 +102,9 @@ export default function LevelMode({ onPlayVideo }) {
           </div>
           {revealed && (
             <div className="gd-actual">
-              actually #{item.position}
+              list #{item.position} · you guessed #{guessedIndex + 1}
               <span className={`gd-diff ${diffClass(err)}`}>
-                {err === 0 ? ' ✓ exact' : ` off by ${err}`}
+                {err === 0 ? ' ✓ exact' : ` ${guessedIndex < userIndex ? '↓' : '↑'} ${err}`}
               </span>
             </div>
           )}

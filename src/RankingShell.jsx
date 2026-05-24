@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Trophy, Shuffle, Skull } from 'lucide-react';
 
 export default function RankingShell({
@@ -13,6 +13,7 @@ export default function RankingShell({
   const [ordered, setOrdered] = useState([]);
   const [revealed, setRevealed] = useState(false);
   const [score, setScore] = useState(null);
+  const [guessedIdxById, setGuessedIdxById] = useState({});
 
   const dragId = useRef(null);
   const dragOverId = useRef(null);
@@ -33,6 +34,7 @@ export default function RankingShell({
     setOrdered(items);
     setRevealed(false);
     setScore(null);
+    setGuessedIdxById({});
   }, [items]);
 
   // Non-passive touchmove — must be a window listener so we can preventDefault
@@ -180,6 +182,9 @@ export default function RankingShell({
   }
 
   function reveal() {
+    const guessedMap = {};
+    ordered.forEach((item, i) => { guessedMap[item.id] = i; });
+
     const sorted = [...ordered].sort((a, b) => a.sortKey - b.sortKey);
     let totalErr = 0, exact = 0;
     ordered.forEach((item, i) => {
@@ -189,16 +194,13 @@ export default function RankingShell({
       if (err === 0) exact++;
     });
     setScore({ totalErr, exact, total: ordered.length });
+    setGuessedIdxById(guessedMap);
+
+    const rects = captureRects();
+    setOrdered(sorted);
+    setPendingFlip(rects);
     setRevealed(true);
   }
-
-  const correctIdxById = useMemo(() => {
-    if (!revealed) return {};
-    const sorted = [...ordered].sort((a, b) => a.sortKey - b.sortKey);
-    const map = {};
-    sorted.forEach((item, i) => { map[item.id] = i; });
-    return map;
-  }, [revealed, ordered]);
 
   return (
     <>
@@ -238,7 +240,7 @@ export default function RankingShell({
           {ordered.map((item, i) => {
             const isDragging = dragId.current === item.id;
             const isOver = dragOverId.current === item.id && dragId.current !== item.id;
-            const err = revealed ? Math.abs(i - correctIdxById[item.id]) : null;
+            const err = revealed ? Math.abs(i - guessedIdxById[item.id]) : null;
             const cardClass = [
               'gd-card',
               isDragging ? 'dragging' : '',
@@ -264,6 +266,7 @@ export default function RankingShell({
               >
                 {renderCard(item, {
                   userIndex: i,
+                  guessedIndex: revealed ? guessedIdxById[item.id] : null,
                   revealed,
                   err,
                   isFirst: i === 0,

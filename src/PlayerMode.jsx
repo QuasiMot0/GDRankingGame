@@ -111,7 +111,7 @@ export default function PlayerMode({ onPlayVideo }) {
     }
   }
 
-  function renderCard(item, { userIndex, revealed, err, isFirst, isLast, moveUp, moveDown }) {
+  function renderCard(item, { userIndex, guessedIndex, revealed, err, isFirst, isLast, moveUp, moveDown }) {
     const flag = countryFlag(item.nationality?.country_code);
     const { counts, hardest } = item;
 
@@ -148,9 +148,9 @@ export default function PlayerMode({ onPlayVideo }) {
           )}
           {revealed && (
             <div className="gd-actual">
-              actually ranked #{item.rank}
+              ranked #{item.rank} · you guessed #{guessedIndex + 1}
               <span className={`gd-diff ${diffClass(err)}`}>
-                {err === 0 ? ' ✓ exact' : ` off by ${err}`}
+                {err === 0 ? ' ✓ exact' : ` ${guessedIndex < userIndex ? '↓' : '↑'} ${err}`}
               </span>
             </div>
           )}
